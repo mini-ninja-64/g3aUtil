@@ -17,7 +17,7 @@ struct pixel
 };
 
 int writeBMP(char* filename, unsigned int width, unsigned int height, pixel imagePixels[92][64]) {
-	SDL_Surface* surf;
+    SDL_Surface* surf;
     surf = SDL_CreateRGBSurfaceWithFormat(0, width, height, 24, SDL_PIXELFORMAT_RGB888);
     if (surf == NULL) {
         SDL_Log("SDL_CreateRGBSurfaceWithFormat() failed: %s", SDL_GetError());
@@ -85,7 +85,26 @@ int main(int argc, char const *argv[])
 	//make pic
 	writeBMP("selected.bmp", 92, 64, selectedPixelArray);
 	writeBMP("unselected.bmp", 92, 64, unselectedPixelArray);
-
+	
 	std::cout << "^^^^Preview^^^^" << std::endl;
+	return 0;
+}
+
+int loadImage(){
+    SDL_Surface* surf;
+    surf = SDL_LoadBMP("image.bmp")
+    if (surf == NULL) {
+        SDL_Log("SDL_LoadBMP() failed: %s", SDL_GetError());
+        exit(1);
+    }
+    unsigned char* surfPixels = (unsigned char*)surf -> pixels;
+    for (int x = 0; x < width; x++){
+    	for (int y = 0; y < height; y++){
+    		imagePixels[x][y].b = surfPixels[4 * (y * width + x)];
+    		imagePixels[x][y].g = surfPixels[4 * (y * width + x)+1];
+    		imagePixels[x][y].r = +surfPixels[4 * (y * width + x)+2];
+    	}
+    }
+	SDL_FreeSurface(surf);
 	return 0;
 }
