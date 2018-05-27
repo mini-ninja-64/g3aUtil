@@ -10,7 +10,6 @@ B: 0xFF*(bit 12 to 16/31)
 
 */
 
-//TODO: fix changing of rgb systems so colours dont get changed at all
 //TODO: optimise
 //TODO write own bitmap reader and loader
 
@@ -55,9 +54,12 @@ int extractImage(char const* imageOut, char const* g3a, int address){
 	int iX = 0;
 	int iY = 0;
 	for (int i = 0; i < 0x2E00; i+=2 ){
-		pixelArray[iX][iY].r = 0xFF*((buffer[i] >> 3)/31.0);
-		pixelArray[iX][iY].g = 0xFF*(( ((buffer[i] & 7) << 3) | (buffer[i+1] >> 5) )/63.0);
-		pixelArray[iX][iY].b = 0xFF*((buffer[i+1] & 31)/31.0);
+		//pixelArray[iX][iY].r = 0xFF*((buffer[i] >> 3)/31.0);
+		//pixelArray[iX][iY].g = 0xFF*(( ((buffer[i] & 7) << 3) | (buffer[i+1] >> 5) )/63.0);
+		//pixelArray[iX][iY].b = 0xFF*((buffer[i+1] & 31)/31.0);
+		pixelArray[iX][iY].r = (buffer[i] & 0xF8);
+		pixelArray[iX][iY].g = (((buffer[i] & 7) << 3) | (buffer[i+1] >> 5)) << 2;
+		pixelArray[iX][iY].b = (buffer[i+1] & 31) << 3;
 		/*switch (pixelArray[iX][iY].r+pixelArray[iX][iY].g+pixelArray[iX][iY].b){
 			case 0:
 				std::cout << " ";
@@ -116,9 +118,9 @@ int patchImage(char const* imageIn, char const* g3a, int address){
 	int iX = 0;
 	int iY = 0;
 	for (int i = 0; i < 0x2E00; i+=2 ){
-		unsigned char r = ((pixelArray[iX][iY].r/255.0)*31.0);
-		unsigned char g = ((pixelArray[iX][iY].g/255.0)*63.0);
-		unsigned char b = ((pixelArray[iX][iY].b/255.0)*31.0);
+		unsigned char r = pixelArray[iX][iY].r >> 3;//((pixelArray[iX][iY].r/255.0)*31.0);
+		unsigned char g = pixelArray[iX][iY].g >> 2;//((pixelArray[iX][iY].g/255.0)*63.0);
+		unsigned char b = pixelArray[iX][iY].b >> 3;//((pixelArray[iX][iY].b/255.0)*31.0);
 
 		buffer[i] = ((r << 3) | (g >> 3));
 		buffer[i+1] = ((g << 5) | b);
