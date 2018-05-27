@@ -1,17 +1,25 @@
 #include <iostream>
 #include <string>
 #include <SDL2/SDL.h>
-//using rgb 565
-/*
-standardising values
-R: 0xFF*(first 5 bits/31)
-G: 0xFF*(bit 6 to 11/63)
-B: 0xFF*(bit 12 to 16/31)
-
-*/
 
 //TODO: optimise
 //TODO write own bitmap reader and loader
+
+/*
+how to bitmap - simple, cba to write fancy reader lolll ( that why we missing the pallete ), windows bitmap, damn this is a simple bitmap fuk me lol
+
+|---------------|
+|    header		|--type of bitmap(2 byte), size of file(4), reserved1 (2), reserved2 (2), offset to image data(4)
+|---------------|
+|				|
+|  info header	|--size of header (4), w (4), h (4), num of colour planes(2), bits per pixel(2), compression(4), ppm h (4), ppm v (4), num of colours (4), num of important colours (4)
+|				|
+|---------------|
+|				|
+|   IMAGE DATA	|--24bit bgr
+|				|
+|---------------|
+*/
 
 struct pixel
 {
@@ -91,25 +99,31 @@ int extractImage(char const* imageOut, char const* g3a, int address){
 int patchImage(char const* imageIn, char const* g3a, int address){
 	//get pixel data
 	pixel pixelArray[92][64];
-	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, 92, 64, 24, SDL_PIXELFORMAT_RGB888);
-	SDL_Surface* image = SDL_LoadBMP(imageIn);
-	if (surf == NULL) {
-		SDL_Log("SDL_LoadBMP() failed: %s", SDL_GetError());
-		exit(1);
-	}
-	SDL_BlitSurface(image, NULL, surf ,NULL);
-	unsigned char* surfPixels = (unsigned char*)surf -> pixels;
+	unsigned char pixelBuffer[92*64*3];
+	FILE *fptr;
+	fptr = fopen(g3a,"wb");
+	unsigned int imageOffset;
+	unsigned int headerSize;
+	int width; int height;
+	short int bitDepth;
+	fseek ( fptr , 0x0A , SEEK_SET );
+	fread(imageOffset, sizeof(unsigned char), 4, fptr);
+	fread(headerSize, sizeof(unsigned char), 4, fptr);
+	fread(width, sizeof(unsigned char), 4, fptr);
+	fread(height, sizeof(unsigned char), 4, fptr);
+	fseek ( fptr , 0x1C , SEEK_SET );
+	fread(bitDepth, sizeof(unsigned char), 2, fptr);
+	fseek ( fptr , imageOffset , SEEK_SET );
+	fread(pixelBuffer, sizeof(unsigned char), 92*64*3, fptr);
+	fclose(fptr);
+
 	for (int x = 0; x < 92; x++){
 		for (int y = 0; y < 64; y++){
-			pixelArray[x][y].b = surfPixels[4 * (y * 92 + x)];
-			pixelArray[x][y].g = surfPixels[4 * (y * 92 + x)+1];
-			pixelArray[x][y].r = surfPixels[4 * (y * 92 + x)+2];
+			pixelArray[x][y].b = pixelBuffer[4 * (y * 92 + x)];
+			pixelArray[x][y].g = pixelBuffer[4 * (y * 92 + x)+1];
+			pixelArray[x][y].r = pixelBuffer[4 * (y * 92 + x)+2];
 		}
 	}
-
-	//std::cout << SDL_GetPixelFormatName(surf->format->format) << std::endl;
-	SDL_FreeSurface(surf);
-	SDL_FreeSurface(image);
 
 	writeBMP("TEST.bmp", 92, 64, pixelArray);
 
