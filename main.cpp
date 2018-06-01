@@ -19,6 +19,8 @@ how to bitmap - simple, cba to write fancy reader lolll ( that why we missing th
 |   IMAGE DATA	|--24bit bgr
 |				|
 |---------------|
+
+(yn, x0)-->(y0,xn)
 */
 
 struct pixel
@@ -28,24 +30,23 @@ struct pixel
 	unsigned char b;
 };
 
+//TODO: cut down code from bmp loader and writer
+
 int writeBMP(char const* filename, unsigned int width, unsigned int height, pixel imagePixels[92][64]) {
-	SDL_Surface* surf;
-	surf = SDL_CreateRGBSurfaceWithFormat(0, width, height, 24, SDL_PIXELFORMAT_RGB888);
-	if (surf == NULL) {
-		SDL_Log("SDL_CreateRGBSurfaceWithFormat() failed: %s", SDL_GetError());
-		exit(1);
-	}
-	unsigned char* surfPixels = (unsigned char*)surf -> pixels;
+	unsigned char pixelBuffer[92*64*3+(92*padding)];
 	for (int x = 0; x < width; x++){
 		for (int y = 0; y < height; y++){
-			surfPixels[4 * (y * width + x)] = imagePixels[x][y].b;
-			surfPixels[4 * (y * width + x)+1] = imagePixels[x][y].g;
-			surfPixels[4 * (y * width + x)+2] = imagePixels[x][y].r;
+			pixelBuffer[3 * (y * width + x)] = imagePixels[x][y].b;
+			pixelBuffer[3 * (y * width + x)+1] = imagePixels[x][y].g;
+			pixelBuffer[3 * (y * width + x)+2] = imagePixels[x][y].r;
 		}
 	}
 	//sstd::cout << SDL_GetPixelFormatName(surf->format->format) << std::endl;
-	SDL_SaveBMP(surf, filename);
-	SDL_FreeSurface(surf);
+	//SDL_SaveBMP(surf, filename);
+
+	//SDL_FreeSurface(surf);
+
+	//TODO: do fwrite and header euggh so much effort
 	return 0;
 }
 
@@ -97,35 +98,42 @@ int extractImage(char const* imageOut, char const* g3a, int address){
 }
 
 int patchImage(char const* imageIn, char const* g3a, int address){
-	//get pixel data
-	pixel pixelArray[92][64];
-	unsigned char pixelBuffer[92*64*3];
 	FILE *fptr;
-	fptr = fopen(g3a,"wb");
+	fptr = fopen(imageIn,"rb");
 	unsigned int imageOffset;
 	unsigned int headerSize;
 	int width; int height;
 	short int bitDepth;
 	fseek ( fptr , 0x0A , SEEK_SET );
-	fread(imageOffset, sizeof(unsigned char), 4, fptr);
-	fread(headerSize, sizeof(unsigned char), 4, fptr);
-	fread(width, sizeof(unsigned char), 4, fptr);
-	fread(height, sizeof(unsigned char), 4, fptr);
+	fread(&imageOffset, sizeof(unsigned int), 1, fptr);
+	fread(&headerSize, sizeof(unsigned int), 1, fptr);
+	fread(&width, sizeof(int), 1, fptr);
+	fread(&height, sizeof(int), 1, fptr);
 	fseek ( fptr , 0x1C , SEEK_SET );
-	fread(bitDepth, sizeof(unsigned char), 2, fptr);
+	fread(&bitDepth, sizeof(short int), 1, fptr);
 	fseek ( fptr , imageOffset , SEEK_SET );
-	fread(pixelBuffer, sizeof(unsigned char), 92*64*3, fptr);
+
+	float rowSize = 4.0*((bitDepth * width + 31.0)/32.0);
+
+	//get pixel data
+	pixel pixelArray[92][64];
+	int padding = (width*bitDepth) % 4;
+	unsigned char pixelBuffer[92*64*3+(92*padding)];
+
+	fread(pixelBuffer, sizeof(unsigned char), 92*64*3+(92*padding), fptr);
 	fclose(fptr);
+
+	std::cout << width << ", " << height << " @ " << bitDepth << std::endl << "Offset: " << imageOffset << std::endl << std::hex << (int)pixelBuffer[0] <<  ", " << (int)pixelBuffer[1] << ", " << (int)pixelBuffer[2] << std::endl << "Row Size: " << rowSize << std::endl << "Padding: " << padding << std::endl;
 
 	for (int x = 0; x < 92; x++){
 		for (int y = 0; y < 64; y++){
-			pixelArray[x][y].b = pixelBuffer[4 * (y * 92 + x)];
-			pixelArray[x][y].g = pixelBuffer[4 * (y * 92 + x)+1];
-			pixelArray[x][y].r = pixelBuffer[4 * (y * 92 + x)+2];
+			pixelArray[x][height-y-1].b = pixelBuffer[3 * (y * width + x)];
+			pixelArray[x][height-y-1].g = pixelBuffer[3 * (y * width + x)+1];
+			pixelArray[x][height-y-1].r = pixelBuffer[3 * (y * width + x)+2];
 		}
 	}
 
-	writeBMP("TEST.bmp", 92, 64, pixelArray);
+	//writeBMP("TEST.bmp", 92, 64, pixelArray);
 
 	//prepare buffer
 	unsigned char buffer[0x2E00];
@@ -216,13 +224,8 @@ int main(int argc, char const *argv[])
 		extractImage(unselected.c_str(), g3a.c_str(), 0x1000);
 		extractImage(selected.c_str(), g3a.c_str(), 0x4000);
 	}else if (patch){
-		patchImage(unselected.c_str(), g3a.c_str(), 0x1000); //have to run this twice or sdl makes image all blakc wtff.. doesnt matter writing our own bmp loader will fix this
 		patchImage(unselected.c_str(), g3a.c_str(), 0x1000);
 		patchImage(selected.c_str(), g3a.c_str(), 0x4000);
 	}
-	//extractImage(unselected, argv[1], 0x1000);
-	//extractImage(selected, argv[1], 0x4000);
-	//patchImage("first-extract.bmp", argv[1], 0x4000);
-	//extractImage("second-extract.bmp", argv[1], 0x4000);
 	return 0;
 }
