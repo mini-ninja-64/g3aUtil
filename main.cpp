@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <SDL2/SDL.h>
 
 //TODO: optimise
 //TODO write own bitmap reader and loader
@@ -29,24 +28,38 @@ struct pixel
 	unsigned char g;
 	unsigned char b;
 };
+//92x64 24 bit bitmap header 
+static const char BMP_HEADER_92_64[] = {0x42,0x4D,0x36,0x45,0x00,0x00,0x00,0x00,0x00,0x00,0x36,0x00,0x00,0x00,0x28,0x00,0x00,0x00,0x5C,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x01,0x00,0x18,0x00,0x00,0x00,0x00,0x00,0x00,0x45,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-//TODO: cut down code from bmp loader and writer
+//TODO: clean up all the things
 
 int writeBMP(char const* filename, unsigned int width, unsigned int height, pixel imagePixels[92][64]) {
-	unsigned char pixelBuffer[92*64*3+(92*padding)];
+	unsigned char pixelBuffer[92*64*3];
 	for (int x = 0; x < width; x++){
 		for (int y = 0; y < height; y++){
-			pixelBuffer[3 * (y * width + x)] = imagePixels[x][y].b;
-			pixelBuffer[3 * (y * width + x)+1] = imagePixels[x][y].g;
-			pixelBuffer[3 * (y * width + x)+2] = imagePixels[x][y].r;
+			pixelBuffer[3 * (y * width + x)] = imagePixels[x][height-y-1].b;
+			pixelBuffer[3 * (y * width + x)+1] = imagePixels[x][height-y-1].g;
+			pixelBuffer[3 * (y * width + x)+2] = imagePixels[x][height-y-1].r;
 		}
 	}
+
+	FILE *fptr;
+	fptr = fopen(filename, "wb");
+	fseek ( fptr , 0 , SEEK_SET );
+	fwrite(BMP_HEADER_92_64, sizeof(unsigned char), 0x36, fptr);
+	fwrite(pixelBuffer, sizeof(unsigned char), 92*64*3, fptr);
+	fclose(fptr);
 	//sstd::cout << SDL_GetPixelFormatName(surf->format->format) << std::endl;
 	//SDL_SaveBMP(surf, filename);
 
 	//SDL_FreeSurface(surf);
 
 	//TODO: do fwrite and header euggh so much effort
+	return 0;
+}
+
+int loadBMP(char const* filename) {
+
 	return 0;
 }
 
@@ -100,6 +113,9 @@ int extractImage(char const* imageOut, char const* g3a, int address){
 int patchImage(char const* imageIn, char const* g3a, int address){
 	FILE *fptr;
 	fptr = fopen(imageIn,"rb");
+	if (fptr == NULL){
+		std::cerr << "Cannot load file" << std::endl;
+	}
 	unsigned int imageOffset;
 	unsigned int headerSize;
 	int width; int height;
@@ -114,6 +130,17 @@ int patchImage(char const* imageIn, char const* g3a, int address){
 	fseek ( fptr , imageOffset , SEEK_SET );
 
 	float rowSize = 4.0*((bitDepth * width + 31.0)/32.0);
+
+	//error checking
+	if ((width != 92) || (height != 64)){
+		std::cerr << "Image must be 92x64 bitmap" << std::endl;
+		return -1;
+	}
+
+	if (bitDepth != 24){
+		std::cerr << "Image must be 24 bit bitmap" << std::endl;
+		return -1;
+	}
 
 	//get pixel data
 	pixel pixelArray[92][64];
@@ -156,8 +183,7 @@ int patchImage(char const* imageIn, char const* g3a, int address){
 	}
 
 	//write file
-	FILE *fptr;
-	fptr = fopen(g3a,"wb");
+	fptr = fopen(g3a,"rb+");
 	fseek ( fptr , address , SEEK_SET );
 	int a = fwrite(buffer, sizeof(unsigned char), 0x2E00, fptr);
 	std::cout << a << std::endl;
@@ -195,7 +221,7 @@ int main(int argc, char const *argv[])
 						break;
 
 						default:
-							std::cout << "--" << argv[i][2] << " not recognised" << std::endl;
+							std::cout << "Argument --" << argv[i][2] << " not recognised" << std::endl;
 						break;
 					}
 				break;
@@ -210,7 +236,7 @@ int main(int argc, char const *argv[])
 				break;
 
 				default:
-					std::cout << "-" << argv[i][1] << " not recognised" << std::endl;
+					std::cout << "Argument -" << argv[i][1] << " not recognised" << std::endl;
 				break;
 			}
 		}
