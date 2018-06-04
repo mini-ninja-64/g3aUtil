@@ -6,6 +6,6 @@ Done:
 Icon extracting and patching
 
 To Do:
-Checksum fixer
+Checksum fixer,
 Name changing
 and more
