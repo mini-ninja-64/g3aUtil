@@ -1,2 +1,11 @@
-# g3aIconExtractor
-program to extract icons from a g3a
+# g3a Util
+
+Set of utilitys to examine and edit g3a files
+
+Done:
+Icon extracting and patching
+
+To Do:
+Checksum fixer,
+Name changing
+and more
